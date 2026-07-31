@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Search, Bell, Sun, Moon, User, LogOut, Shield, ChevronDown, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Sparkles, Search, Bell, Sun, Moon, User, LogOut, Shield, ChevronDown, AlertCircle } from 'lucide-react';
 
 export default function Navbar({
   user,
@@ -132,9 +132,13 @@ export default function Navbar({
                 }}
                 className="flex items-center space-x-2 p-1.5 rounded-xl bg-slate-800/60 border border-slate-700/60 hover:border-indigo-500/40 transition"
               >
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs uppercase shadow">
-                  {user.name ? user.name.charAt(0) : user.username?.charAt(0) || 'U'}
-                </div>
+                {user.avatar ? (
+                  <img src={user.avatar} alt="Profile" className="w-8 h-8 rounded-lg object-cover" />
+                ) : (
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs uppercase shadow">
+                    {user.name ? user.name.charAt(0) : user.username?.charAt(0) || 'U'}
+                  </div>
+                )}
                 <span className="hidden sm:inline text-xs font-semibold text-white max-w-[100px] truncate">
                   {user.name || user.username}
                 </span>
