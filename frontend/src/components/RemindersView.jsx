@@ -1,189 +1,136 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, BellRing, CheckCircle2, Clock, AlertTriangle, Send, X } from 'lucide-react';
+import { Bell, Clock, AlertCircle, CheckCircle2, Volume2, Sparkles, Shield, ArrowRight } from 'lucide-react';
 
-export default function RemindersView({ tasks }) {
-  const [testNotification, setTestNotification] = useState(null);
-  const [permissionMsg, setPermissionMsg] = useState('');
-
-  // Auto-dismiss the test alert toast after a few seconds
-  useEffect(() => {
-    if (!testNotification) return;
-    const timer = setTimeout(() => setTestNotification(null), 6000);
-    return () => clearTimeout(timer);
-  }, [testNotification]);
+export default function RemindersView({ tasks = [], onToggleComplete }) {
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
-    if (!permissionMsg) return;
-    const timer = setTimeout(() => setPermissionMsg(''), 4000);
-    return () => clearTimeout(timer);
-  }, [permissionMsg]);
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const now = new Date();
+  // Filter tasks with reminder dates
+  const reminderTasks = tasks.filter((t) => t.reminderDate || t.deadline);
 
-  // Extract tasks with a reminder or deadline, tag overdue vs upcoming, sort chronologically
-  const tasksWithReminders = tasks
-    .filter(t => t.reminderDate || t.deadlineDate)
-    .map(t => {
-      const alertDate = new Date(t.reminderDate || t.deadlineDate);
-      return { ...t, alertDate, isOverdue: alertDate < now && t.status !== 'COMPLETE' };
-    })
-    .sort((a, b) => a.alertDate - b.alertDate);
+  const getCountdown = (targetDateStr) => {
+    if (!targetDateStr) return 'No timestamp';
+    const target = new Date(targetDateStr);
+    const diffMs = target - now;
 
-  const overdue = tasksWithReminders.filter(t => t.isOverdue);
-  const upcoming = tasksWithReminders.filter(t => !t.isOverdue);
+    if (diffMs <= 0) return 'Expired / Due Now';
 
-  const handleTestAlert = (task) => {
-    setTestNotification({
-      title: `Reminder Alert: ${task.title}`,
-      body: `Due by ${task.alertDate.toLocaleString()}`,
-    });
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diffMs % (1000 * 60)) / 1000);
 
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(`Reminder: ${task.title}`, {
-        body: task.description || 'Task deadline approaching!',
-      });
-    } else if ("Notification" in window && Notification.permission !== "denied") {
-      Notification.requestPermission();
-    }
+    return `${hours}h ${mins}m ${secs}s left`;
   };
 
-  const handleEnableNotifications = () => {
-    if (!("Notification" in window)) {
-      setPermissionMsg('Notifications are not supported in this browser.');
-      return;
-    }
-    Notification.requestPermission().then(permission => {
-      setPermissionMsg(
-        permission === 'granted'
-          ? 'Browser notifications enabled.'
-          : permission === 'denied'
-          ? 'Browser notifications were blocked.'
-          : 'Notification permission dismissed.'
-      );
-    });
+  const playTestAlert = () => {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, audioContext.currentTime); // D5 note
+    gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+    osc.start();
+    osc.stop(audioContext.currentTime + 0.3);
   };
-
-  const renderReminderCard = (task) => (
-    <div
-      key={task.id}
-      className={`glass-panel p-4 rounded-xl flex items-center justify-between gap-4 transition-all duration-200 ${
-        task.status === 'COMPLETE'
-          ? 'opacity-50'
-          : task.isOverdue
-          ? 'border-rose-500/40 hover:border-rose-500/60'
-          : 'hover:border-purple-500/40'
-      }`}
-    >
-      <div className="flex items-center gap-3 min-w-0">
-        <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center border ${
-          task.status === 'COMPLETE'
-            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-            : task.isOverdue
-            ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-            : 'bg-purple-500/10 border-purple-500/20 text-purple-400'
-        }`}>
-          {task.status === 'COMPLETE' ? <CheckCircle2 className="w-5 h-5" /> : task.isOverdue ? <AlertTriangle className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
-        </div>
-        <div className="min-w-0">
-          <h4 className={`font-bold text-sm text-slate-100 truncate ${task.status === 'COMPLETE' ? 'line-through' : ''}`}>
-            {task.title}
-          </h4>
-          <p className={`text-xs ${task.isOverdue ? 'text-rose-400 font-semibold' : 'text-slate-400'}`}>
-            {task.status === 'COMPLETE' ? 'Completed · ' : task.isOverdue ? 'Overdue · ' : 'Alert Date: '}
-            {task.alertDate.toLocaleString()}
-          </p>
-        </div>
-      </div>
-
-      <button
-        onClick={() => handleTestAlert(task)}
-        className="shrink-0 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-purple-900/40 text-purple-300 border border-slate-700 hover:border-purple-500/50 text-xs font-semibold flex items-center gap-1.5 transition-all duration-200"
-      >
-        <Send className="w-3.5 h-3.5" /> Test Alert
-      </button>
-    </div>
-  );
 
   return (
-    <div className="space-y-6">
-
-      {/* Reminders Banner */}
-      <div className="glass-panel p-6 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
-            <BellRing className="w-6 h-6" />
+    <div className="space-y-8 animate-fadeIn">
+      {/* Header */}
+      <div className="glass-panel p-6 rounded-3xl border border-cyan-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center space-x-3">
+          <div className="p-3 rounded-2xl bg-cyan-600/20 text-cyan-400">
+            <Bell className="w-6 h-6 animate-bounce" />
           </div>
           <div>
-            <h2 className="text-xl font-extrabold text-white">Automated Task Reminders</h2>
-            <p className="text-xs text-slate-400">In-App Alert Notifications &amp; Desktop Prompts</p>
+            <h1 className="text-2xl font-extrabold text-white">Precision Smart Reminders</h1>
+            <p className="text-xs text-slate-400 mt-0.5">Real-Time Deadline Timelines & Alert Engine</p>
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-2">
-          <button
-            onClick={handleEnableNotifications}
-            className="px-4 py-2 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-200 text-xs font-bold hover:bg-purple-600/30 transition-all duration-200 flex items-center gap-2"
-          >
-            <Bell className="w-4 h-4" /> Enable Browser Notifications
-          </button>
-          {permissionMsg && (
-            <p className="text-[11px] text-slate-400 animate-[fadeIn_0.2s_ease-out]">{permissionMsg}</p>
-          )}
-        </div>
+        <button
+          onClick={playTestAlert}
+          className="px-5 py-2.5 rounded-2xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-cyan-300 font-bold text-xs transition flex items-center space-x-2 self-start md:self-auto"
+        >
+          <Volume2 className="w-4 h-4" />
+          <span>Test Sound Alert</span>
+        </button>
       </div>
 
-      {/* Simulated Alert Toast */}
-      {testNotification && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-900/60 to-indigo-900/60 border border-purple-500/50 shadow-2xl flex items-center justify-between gap-3 animate-[slideDown_0.25s_ease-out]">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="p-2 rounded-xl bg-purple-500 text-slate-950 font-bold shrink-0">
-              <BellRing className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <h4 className="font-bold text-sm text-white truncate">{testNotification.title}</h4>
-              <p className="text-xs text-purple-200 truncate">{testNotification.body}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setTestNotification(null)}
-            aria-label="Dismiss"
-            className="shrink-0 p-1.5 text-slate-300 hover:text-white bg-slate-900/50 rounded-lg transition-colors duration-200"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      {/* Reminders List Cards */}
+      <div className="space-y-4">
+        {reminderTasks.length > 0 ? (
+          reminderTasks.map((t) => {
+            const isCompleted = t.status === 'COMPLETE';
+            const reminderTime = t.reminderDate || t.deadline;
+            const countdownText = getCountdown(reminderTime);
+            const isPast = new Date(reminderTime) < now && !isCompleted;
 
-      {/* Overdue Reminders */}
-      {overdue.length > 0 && (
-        <div className="glass-panel p-6 rounded-2xl space-y-4 border border-rose-500/20">
-          <h3 className="text-sm font-bold text-rose-400 flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4" /> Overdue ({overdue.length})
-          </h3>
-          <div className="grid grid-cols-1 gap-3">
-            {overdue.map(renderReminderCard)}
-          </div>
-        </div>
-      )}
+            return (
+              <div
+                key={t.id}
+                className={`p-6 rounded-3xl glass-panel-interactive border transition flex flex-col md:flex-row md:items-center justify-between gap-6 ${
+                  isPast
+                    ? 'border-rose-500/40 bg-rose-950/10'
+                    : isCompleted
+                    ? 'border-slate-800 opacity-60'
+                    : 'border-slate-700/80'
+                }`}
+              >
+                <div className="flex items-start space-x-4">
+                  <div className={`p-3 rounded-2xl ${isPast ? 'bg-rose-500/20 text-rose-400' : 'bg-indigo-600/20 text-indigo-400'}`}>
+                    <Clock className="w-6 h-6" />
+                  </div>
 
-      {/* Upcoming / Completed Reminders */}
-      <div className="glass-panel p-6 rounded-2xl space-y-4">
-        <h3 className="text-sm font-bold text-slate-200">
-          {overdue.length > 0 ? 'Other Reminders' : 'Active Task Reminder Schedule'}
-        </h3>
+                  <div>
+                    <h3 className={`font-bold text-lg text-white ${isCompleted ? 'line-through text-slate-400' : ''}`}>
+                      {t.title}
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Scheduled for: {new Date(reminderTime).toLocaleString()}
+                    </p>
 
-        {upcoming.length === 0 ? (
-          <div className="text-center py-12 space-y-2">
-            <Bell className="w-8 h-8 text-slate-600 mx-auto" />
-            <p className="text-xs text-slate-400">No scheduled reminders active.</p>
-          </div>
+                    <div className="flex items-center space-x-3 mt-3">
+                      <span className={`text-xs font-mono font-bold px-3 py-1 rounded-xl border ${
+                        isPast
+                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                          : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                      }`}>
+                        {countdownText}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3 self-end md:self-center">
+                  <button
+                    onClick={() => onToggleComplete(t.id)}
+                    className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition flex items-center space-x-2 ${
+                      isCompleted
+                        ? 'bg-slate-800 text-slate-400'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{isCompleted ? 'Done' : 'Mark Complete'}</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })
         ) : (
-          <div className="grid grid-cols-1 gap-3">
-            {upcoming.map(renderReminderCard)}
+          <div className="py-16 text-center text-slate-400 glass-panel rounded-3xl border border-dashed border-slate-800">
+            <Bell className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+            <p className="font-semibold text-base">No active reminders scheduled.</p>
+            <p className="text-xs text-slate-500 mt-1">Set a reminder timestamp when creating or editing a task.</p>
           </div>
         )}
       </div>
-
     </div>
   );
 }

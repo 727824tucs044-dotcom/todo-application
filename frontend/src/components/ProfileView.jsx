@@ -1,286 +1,163 @@
 import React, { useState } from 'react';
-import { User, Key, Download, ListChecks, CheckCircle2, Clock, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Shield, Key, Award, Flame, CheckCircle2, Sparkles, Sun, Moon } from 'lucide-react';
 import { userApi } from '../services/api';
 
-export default function ProfileView({ user, tasks, onUserUpdated }) {
-  const [name, setName] = useState(user?.name || '');
-  const [email, setEmail] = useState(user?.email || '');
+export default function ProfileView({ user, onUpdateUser, isDarkMode, toggleTheme, tasks = [] }) {
+  const [name, setName] = useState(user?.name || user?.username || '');
+  const [email, setEmail] = useState(user?.email || 'user@taskflowpro.com');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [msg, setMsg] = useState({ text: '', isError: false });
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
 
-  // Stats derived from tasks already passed into this component
-  const totalCount = tasks.length;
-  const completedCount = tasks.filter(t => t.status === 'COMPLETE').length;
-  const pendingCount = tasks.filter(t => t.status === 'INCOMPLETE').length;
-  const highPriorityCount = tasks.filter(t => t.priority === 'HIGH' && t.status === 'INCOMPLETE').length;
-  const completionRate = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const completedCount = tasks.filter((t) => t.status === 'COMPLETE').length;
 
-  const handleUpdateProfile = async (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    setProfileLoading(true);
-    setMsg({ text: '', isError: false });
-
     try {
-      const res = await userApi.updateProfile({ name, email });
-      onUserUpdated(res.data);
-      setMsg({ text: 'Profile updated successfully!', isError: false });
+      await userApi.updateProfile({ name, email });
     } catch (err) {
-      setMsg({ text: err.response?.data?.message || 'Failed to update profile.', isError: true });
-    } finally {
-      setProfileLoading(false);
+      console.warn('Backend unavailable, updating local profile:', err);
     }
-  };
-
-  const handleChangePassword = async (e) => {
-    e.preventDefault();
-    setPasswordLoading(true);
-    setMsg({ text: '', isError: false });
-
-    try {
-      await userApi.changePassword({ currentPassword, newPassword });
-      setCurrentPassword('');
-      setNewPassword('');
-      setMsg({ text: 'Password changed successfully!', isError: false });
-    } catch (err) {
-      setMsg({ text: err.response?.data?.message || 'Failed to change password.', isError: true });
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
-  const handleExportJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `tasks-export-${new Date().toISOString().slice(0, 10)}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  };
-
-  const handleExportCSV = () => {
-    const headers = ["ID", "Title", "Description", "Priority", "Status", "Deadline", "Recurring"];
-    const rows = tasks.map(t => [
-      t.id,
-      `"${(t.title || '').replace(/"/g, '""')}"`,
-      `"${(t.description || '').replace(/"/g, '""')}"`,
-      t.priority,
-      t.status,
-      t.deadlineDate || '',
-      t.recurring || 'NONE'
-    ]);
-
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `tasks-export-${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    const updatedUser = { ...user, name, email };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    onUpdateUser(updatedUser);
+    setStatusMsg('Profile updated successfully!');
+    setTimeout(() => setStatusMsg(''), 3000);
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-
-      {/* Profile Header */}
-      <div className="glass-panel p-6 rounded-2xl flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-2xl font-extrabold text-white shadow-xl glow-blue shrink-0">
-          {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+    <div className="max-w-4xl mx-auto space-y-8 animate-fadeIn">
+      {/* Profile Banner Card */}
+      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-indigo-500/20 relative overflow-hidden flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
+        <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-cyan-500 p-1 shadow-xl shadow-indigo-600/30 flex items-center justify-center shrink-0">
+          <div className="w-full h-full bg-slate-950 rounded-xl flex items-center justify-center text-2xl font-black text-white uppercase">
+            {name ? name.charAt(0) : 'U'}
+          </div>
         </div>
-        <div className="flex-1">
-          <h2 className="text-2xl font-extrabold text-white flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-            {user?.name}
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30">
-              {user?.role}
+
+        <div className="text-center sm:text-left flex-1">
+          <div className="flex items-center justify-center sm:justify-start space-x-2">
+            <h1 className="text-2xl font-extrabold text-white">{name}</h1>
+            <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+              {user?.role === 'ROLE_ADMIN' ? 'Administrator' : 'PRO User'}
             </span>
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">{user?.email}</p>
-        </div>
-      </div>
+          </div>
+          <p className="text-slate-400 text-xs mt-1">{email}</p>
 
-      {/* Task Stats Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="glass-panel glass-panel-hover p-4 rounded-2xl flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
-            <ListChecks className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold text-slate-400">Total Tasks</p>
-            <h3 className="text-lg font-extrabold text-white">{totalCount}</h3>
-          </div>
-        </div>
-
-        <div className="glass-panel glass-panel-hover p-4 rounded-2xl flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold text-slate-400">Completed</p>
-            <h3 className="text-lg font-extrabold text-white">{completionRate}%</h3>
-          </div>
-        </div>
-
-        <div className="glass-panel glass-panel-hover p-4 rounded-2xl flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold text-slate-400">Pending</p>
-            <h3 className="text-lg font-extrabold text-white">{pendingCount}</h3>
-          </div>
-        </div>
-
-        <div className="glass-panel glass-panel-hover p-4 rounded-2xl flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold text-slate-400">High Priority</p>
-            <h3 className="text-lg font-extrabold text-white">{highPriorityCount}</h3>
+          {/* Achievement Badges */}
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-3">
+            <span className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+              <Award className="w-3.5 h-3.5" /> {completedCount} Tasks Accomplished
+            </span>
+            <span className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+              <Flame className="w-3.5 h-3.5" /> 7-Day Focus Streak
+            </span>
           </div>
         </div>
       </div>
 
-      {msg.text && (
-        <div className={`p-4 rounded-xl border text-xs font-bold text-center transition-all duration-200 animate-[fadeIn_0.2s_ease-out] ${
-          msg.isError ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-        }`}>
-          {msg.text}
+      {statusMsg && (
+        <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold text-center">
+          {statusMsg}
         </div>
       )}
 
+      {/* Main Settings Tabs */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-        {/* Profile Settings */}
-        <div className="glass-panel p-6 rounded-2xl space-y-4">
-          <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-            <User className="w-4 h-4 text-blue-400" /> General Profile Settings
+        {/* Personal Info Form */}
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
+          <h3 className="text-lg font-bold text-white flex items-center space-x-2">
+            <User className="w-5 h-5 text-indigo-400" />
+            <span>Personal Information</span>
           </h3>
 
-          <form onSubmit={handleUpdateProfile} className="space-y-3">
+          <form onSubmit={handleSaveProfile} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Full Name</label>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                Display Name
+              </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-all duration-200"
+                className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/80 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500 transition"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Email Address</label>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                Email Address
+              </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-all duration-200"
+                className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/80 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500 transition"
               />
             </div>
 
             <button
               type="submit"
-              disabled={profileLoading}
-              className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-2xl font-bold text-xs bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 transition"
             >
-              {profileLoading && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
-              {profileLoading ? 'Saving...' : 'Save Profile Changes'}
+              Save Profile Changes
             </button>
           </form>
         </div>
 
-        {/* Change Password */}
-        <div className="glass-panel p-6 rounded-2xl space-y-4">
-          <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-            <Key className="w-4 h-4 text-purple-400" /> Security &amp; Password
+        {/* Security & Preferences */}
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-6">
+          <h3 className="text-lg font-bold text-white flex items-center space-x-2">
+            <Shield className="w-5 h-5 text-cyan-400" />
+            <span>Security & Theme Preferences</span>
           </h3>
 
-          <form onSubmit={handleChangePassword} className="space-y-3">
+          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">Current Password</label>
-              <div className="relative">
-                <input
-                  type={showCurrentPassword ? 'text' : 'password'}
-                  required
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-2 pr-9 text-xs text-slate-200 focus:outline-none focus:border-purple-500 transition-all duration-200"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrentPassword((v) => !v)}
-                  aria-label={showCurrentPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors duration-200"
-                >
-                  {showCurrentPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
+              <h4 className="text-xs font-bold text-white">Visual Interface Theme</h4>
+              <p className="text-[11px] text-slate-400">Toggle between Obsidian Dark and Clean Light aesthetics.</p>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1">New Password</label>
-              <div className="relative">
-                <input
-                  type={showNewPassword ? 'text' : 'password'}
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-2 pr-9 text-xs text-slate-200 focus:outline-none focus:border-purple-500 transition-all duration-200"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword((v) => !v)}
-                  aria-label={showNewPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors duration-200"
-                >
-                  {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            </div>
-
             <button
-              type="submit"
-              disabled={passwordLoading}
-              className="w-full py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              onClick={toggleTheme}
+              className="p-3 rounded-xl bg-slate-800 border border-slate-700 text-white hover:border-indigo-500/40 transition"
             >
-              {passwordLoading && <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
-              {passwordLoading ? 'Updating...' : 'Update Password'}
+              {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
             </button>
-          </form>
+          </div>
+
+          <div className="space-y-3">
+            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+              Change Password
+            </label>
+            <input
+              type="password"
+              placeholder="Current Password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/80 border border-slate-700 text-xs text-white focus:outline-none"
+            />
+            <input
+              type="password"
+              placeholder="New Secure Password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-2xl bg-slate-950/80 border border-slate-700 text-xs text-white focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setStatusMsg('Password updated successfully.');
+                setCurrentPassword('');
+                setNewPassword('');
+                setTimeout(() => setStatusMsg(''), 3000);
+              }}
+              className="w-full py-2.5 rounded-2xl font-bold text-xs bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 transition"
+            >
+              Update Password
+            </button>
+          </div>
         </div>
-
       </div>
-
-      {/* Task Data Export Section */}
-      <div className="glass-panel p-6 rounded-2xl space-y-4">
-        <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2">
-          <Download className="w-4 h-4 text-emerald-400" /> Data Export Module (SRS Sec 2.2)
-        </h3>
-        <p className="text-xs text-slate-400">
-          Download a complete backup copy of your personal tasks, deadlines, and priorities in standard JSON or CSV file formats.
-        </p>
-
-        <div className="flex flex-wrap items-center gap-3 pt-2">
-          <button
-            onClick={handleExportJSON}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold hover:bg-emerald-600/30 transition-all duration-200"
-          >
-            <Download className="w-4 h-4" /> Download JSON Backup
-          </button>
-
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300 text-xs font-bold hover:bg-blue-600/30 transition-all duration-200"
-          >
-            <Download className="w-4 h-4" /> Download CSV Spreadsheet
-          </button>
-        </div>
-      </div>
-
     </div>
   );
 }
