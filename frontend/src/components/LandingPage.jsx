@@ -148,7 +148,7 @@ export default function LandingPage({ onGetStarted, onOpenAuth }) {
 
           <button
             onClick={onGetStarted}
-            className="w-full sm:w-auto px-8 py-4 rounded-2xl font-bold text-lg glass-panel hover:bg-slate-800 text-white border border-slate-700 hover:border-slate-500 transition flex items-center justify-center space-x-2"
+            className="w-full sm:w-auto px-8 py-4 rounded-2xl font-bold text-lg glass-panel hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700 hover:border-slate-500 transition flex items-center justify-center space-x-2"
           >
             <Play className="w-5 h-5 text-indigo-400 fill-indigo-400" />
             <span>Interactive Demo</span>
